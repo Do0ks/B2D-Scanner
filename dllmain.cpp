@@ -15,7 +15,7 @@ using namespace std;
 
 static const DWORD_PTR MAX_OFFSET = 0x1000;
 static const DWORD_PTR OFFSET_STEP = sizeof(DWORD_PTR);
-static const int LOG_FREQUENCY = 1; 
+static const int LOG_FREQUENCY = 1;
 
 #define CONSOLE_MAX_CHARS 300000
 
@@ -46,6 +46,49 @@ HWND g_staticDynamic = NULL;
 HWND g_staticMaxDepth = NULL;
 
 WNDPROC g_oldEditOffsetProc = NULL;
+
+//---------------------------------------------------------------------
+// Helper functions for hex filtering
+//---------------------------------------------------------------------
+
+// Returns the most-significant hex digit (as an uppercase char) of addr.
+// For example, 0x1978D5D12C0 -> '1'
+char GetHighHexDigit(DWORD_PTR addr) {
+    char hexDigits[] = "0123456789ABCDEF";
+    if (addr == 0)
+        return '0';
+    char digit = '0';
+    while (addr > 0) {
+        digit = hexDigits[addr % 16];
+        addr /= 16;
+    }
+    return digit;
+}
+
+// Returns the number of hex digits in addr (ignoring any leading zeros)
+int GetHexDigitCount(DWORD_PTR addr) {
+    int count = 0;
+    if (addr == 0) return 1;
+    while (addr > 0) {
+        count++;
+        addr /= 16;
+    }
+    return count;
+}
+
+// Checks if addr's most-significant hex digit is one of the allowed ones.
+bool IsAllowedAddress(DWORD_PTR addr, const vector<char>& allowedHighDigits) {
+    char digit = GetHighHexDigit(addr);
+    for (char allowed : allowedHighDigits) {
+        if (allowed == digit)
+            return true;
+    }
+    return false;
+}
+
+//---------------------------------------------------------------------
+// End helper functions
+//---------------------------------------------------------------------
 
 LRESULT CALLBACK EditOffsetProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     if (message == WM_KEYDOWN && wParam == VK_RETURN) {
@@ -121,6 +164,17 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
     int maxDepth = sp->maxDepth;
     delete sp;
 
+    // Build allowed high-digit list from base and dynamic addresses.
+    vector<char> allowedHighDigits;
+    char baseHigh = GetHighHexDigit(baseAddr);
+    allowedHighDigits.push_back(baseHigh);
+    char dynHigh = GetHighHexDigit(dynamicAddr);
+    if (find(allowedHighDigits.begin(), allowedHighDigits.end(), dynHigh) == allowedHighDigits.end())
+        allowedHighDigits.push_back(dynHigh);
+
+    // Determine the expected hex digit count.
+    int expectedLength = max(GetHexDigitCount(baseAddr), GetHexDigitCount(dynamicAddr));
+
     g_stopRequested = false;
     g_isScanning = true;
 
@@ -137,7 +191,6 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
 
     bool found = false;
     vector<DWORD_PTR> foundOffsets;
-    int expansions = 0;
 
     while (!q.empty() && !g_stopRequested) {
         BFSNode node = q.front();
@@ -145,7 +198,7 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
 
         {
             char buf[128];
-            sprintf_s(buf, "Scanning: %p at depth: %d\r\n",
+            sprintf_s(buf, "Scanning Address: %p at depth: %d\r\n",
                 (void*)node.currentPtr, node.depthUsed);
             AppendConsoleAsync(buf);
             Sleep(70);
@@ -160,10 +213,14 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
             continue;
         }
 
+        // Use positional offset if available.
         if (node.depthUsed < (int)g_positionalOffsets.size()) {
             DWORD_PTR off = g_positionalOffsets[node.depthUsed];
             DWORD_PTR val = 0;
-            if (SafeReadPtr(node.currentPtr + off, &val)) {
+            if (SafeReadPtr(node.currentPtr + off, &val) &&
+                IsAllowedAddress(val, allowedHighDigits) &&
+                (GetHexDigitCount(val) == expectedLength))
+            {
                 if (!visited.count(val)) {
                     visited.insert(val);
                     BFSNode newNode;
@@ -176,10 +233,15 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
             }
         }
         else {
+            // Otherwise, scan all offsets.
             for (DWORD_PTR off = 0; off <= MAX_OFFSET; off += OFFSET_STEP) {
-                if (g_stopRequested) break;
+                if (g_stopRequested)
+                    break;
                 DWORD_PTR val = 0;
-                if (SafeReadPtr(node.currentPtr + off, &val)) {
+                if (SafeReadPtr(node.currentPtr + off, &val) &&
+                    IsAllowedAddress(val, allowedHighDigits) &&
+                    (GetHexDigitCount(val) == expectedLength))
+                {
                     if (!visited.count(val)) {
                         visited.insert(val);
                         BFSNode newNode;
@@ -302,7 +364,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 DWORD_PTR baseAddr = strtoull(bufBase, NULL, 16);
                 DWORD_PTR dynAddr = strtoull(bufDyn, NULL, 16);
                 int maxDepth = atoi(bufDepth);
-                if (maxDepth < 1) maxDepth = 3;
+                if (maxDepth < 1)
+                    maxDepth = 3;
 
                 g_positionalOffsets.clear();
                 int count = (int)SendMessageA(g_listOffsets, LB_GETCOUNT, 0, 0);
