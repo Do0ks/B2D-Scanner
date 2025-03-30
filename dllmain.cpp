@@ -13,7 +13,8 @@ using namespace std;
 
 #pragma comment(lib, "User32.lib")
 
-static const DWORD_PTR MAX_OFFSET = 0x1000;
+static const DWORD_PTR MAX_OFFSET = 0x1000;  // Adjust for the maximum offset to scan.
+static const DWORD_PTR MAX_SUBOFFSET = 0x1000;  // Adjust for the maximum sub-offset to scan.
 static const DWORD_PTR OFFSET_STEP = sizeof(DWORD_PTR);
 static const int LOG_FREQUENCY = 1;
 
@@ -52,7 +53,6 @@ WNDPROC g_oldEditOffsetProc = NULL;
 //---------------------------------------------------------------------
 
 // Returns the most-significant hex digit (as an uppercase char) of addr.
-// For example, 0x1978D5D12C0 -> '1'
 char GetHighHexDigit(DWORD_PTR addr) {
     char hexDigits[] = "0123456789ABCDEF";
     if (addr == 0)
@@ -65,7 +65,7 @@ char GetHighHexDigit(DWORD_PTR addr) {
     return digit;
 }
 
-// Returns the number of hex digits in addr (ignoring any leading zeros)
+// Returns the number of hex digits in address (ignores leading zeros)
 int GetHexDigitCount(DWORD_PTR addr) {
     int count = 0;
     if (addr == 0) return 1;
@@ -76,7 +76,7 @@ int GetHexDigitCount(DWORD_PTR addr) {
     return count;
 }
 
-// Checks if addr's most-significant hex digit is one of the allowed ones.
+// Checks if address most-significant hex digit is one of the allowed ones.
 bool IsAllowedAddress(DWORD_PTR addr, const vector<char>& allowedHighDigits) {
     char digit = GetHighHexDigit(addr);
     for (char allowed : allowedHighDigits) {
@@ -85,10 +85,6 @@ bool IsAllowedAddress(DWORD_PTR addr, const vector<char>& allowedHighDigits) {
     }
     return false;
 }
-
-//---------------------------------------------------------------------
-// End helper functions
-//---------------------------------------------------------------------
 
 LRESULT CALLBACK EditOffsetProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     if (message == WM_KEYDOWN && wParam == VK_RETURN) {
@@ -140,19 +136,31 @@ string FormatChain(DWORD_PTR base, DWORD_PTR target, const vector<DWORD_PTR>& of
     oss << "Pointer Chain:\r\n" << PtrToHexStr(base);
 
     DWORD_PTR current = base;
-    for (size_t i = 0; i < offsets.size(); i++) {
+    size_t n = offsets.size();
+    for (size_t i = 0; i < n; i++) {
         DWORD_PTR off = offsets[i];
-        oss << " + " << PtrToHexStr(off) << "\r\n-> ";
-        DWORD_PTR val = 0;
-        SafeReadPtr(current + off, &val);
-        current = val;
-        oss << PtrToHexStr(current);
+        oss << " + " << PtrToHexStr(off);
+
+        if (i == n - 2) {
+            DWORD_PTR val = 0;
+            SafeReadPtr(current + off, &val);
+            current = val;
+            oss << "\r\n-> " << PtrToHexStr(current);
+            DWORD_PTR subOff = offsets[i + 1];
+            oss << " + " << PtrToHexStr(subOff);
+            current = target;
+            oss << "\r\n-> " << PtrToHexStr(current);
+            break;
+        }
+        else {
+            DWORD_PTR val = 0;
+            SafeReadPtr(current + off, &val);
+            current = val;
+            oss << "\r\n-> " << PtrToHexStr(current);
+        }
     }
-    if (current == target) {
-        oss << "\r\n(Reached dynamic address!)\r\n";
-    }
-    else {
-        oss << "\r\n(Final pointer != dynamic?)\r\n";
+    if (current != target) {
+        oss << "\r\n-> " << PtrToHexStr(target);
     }
     return oss.str();
 }
@@ -204,24 +212,46 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
             Sleep(70);
         }
 
+        // If reached the dynamic address directly.
         if (node.currentPtr == dynamicAddr) {
             found = true;
             foundOffsets = node.usedOffsets;
             break;
         }
-        if (node.depthUsed >= maxDepth) {
+        if (node.depthUsed >= maxDepth)
             continue;
-        }
 
-        // Use positional offset if available.
+        // Process using a positional offset if available.
         if (node.depthUsed < (int)g_positionalOffsets.size()) {
             DWORD_PTR off = g_positionalOffsets[node.depthUsed];
             DWORD_PTR val = 0;
-            if (SafeReadPtr(node.currentPtr + off, &val) &&
-                IsAllowedAddress(val, allowedHighDigits) &&
-                (GetHexDigitCount(val) == expectedLength))
-            {
-                if (!visited.count(val)) {
+            if (SafeReadPtr(node.currentPtr + off, &val)) {
+                // Check for an exact match.
+                if (val == dynamicAddr) {
+                    found = true;
+                    vector<DWORD_PTR> chain = node.usedOffsets;
+                    chain.push_back(off);
+                    foundOffsets = chain;
+                }
+                else {
+                    // Check for a sub-offset: dynamicAddr == val + diff.
+                    if (val != 0 && dynamicAddr > val) {
+                        DWORD_PTR diff = dynamicAddr - val;
+                        if (diff <= MAX_SUBOFFSET) {
+                            BFSNode newNode = node;
+                            newNode.usedOffsets.push_back(off);
+                            newNode.usedOffsets.push_back(diff);
+                            foundOffsets = newNode.usedOffsets;
+                            found = true;
+                        }
+                    }
+                }
+                // If not found and the pointer is valid to follow, enqueue it.
+                if (!found &&
+                    IsAllowedAddress(val, allowedHighDigits) &&
+                    (GetHexDigitCount(val) == expectedLength) &&
+                    !visited.count(val))
+                {
                     visited.insert(val);
                     BFSNode newNode;
                     newNode.currentPtr = val;
@@ -233,16 +263,37 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
             }
         }
         else {
-            // Otherwise, scan all offsets.
+            // Otherwise, scan through all offsets.
             for (DWORD_PTR off = 0; off <= MAX_OFFSET; off += OFFSET_STEP) {
                 if (g_stopRequested)
                     break;
                 DWORD_PTR val = 0;
-                if (SafeReadPtr(node.currentPtr + off, &val) &&
-                    IsAllowedAddress(val, allowedHighDigits) &&
-                    (GetHexDigitCount(val) == expectedLength))
-                {
-                    if (!visited.count(val)) {
+                if (SafeReadPtr(node.currentPtr + off, &val)) {
+                    // Check for an exact match.
+                    if (val == dynamicAddr) {
+                        found = true;
+                        vector<DWORD_PTR> chain = node.usedOffsets;
+                        chain.push_back(off);
+                        foundOffsets = chain;
+                        break;
+                    }
+                    // Check for a sub-offset match.
+                    if (val != 0 && dynamicAddr > val) {
+                        DWORD_PTR diff = dynamicAddr - val;
+                        if (diff <= MAX_SUBOFFSET) {
+                            BFSNode newNode = node;
+                            newNode.usedOffsets.push_back(off);
+                            newNode.usedOffsets.push_back(diff);
+                            foundOffsets = newNode.usedOffsets;
+                            found = true;
+                            break; 
+                        }
+                    }
+                    // Enqueue this pointer if it passes checks.
+                    if (IsAllowedAddress(val, allowedHighDigits) &&
+                        (GetHexDigitCount(val) == expectedLength) &&
+                        !visited.count(val))
+                    {
                         visited.insert(val);
                         BFSNode newNode;
                         newNode.currentPtr = val;
@@ -254,6 +305,8 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
                 }
             }
         }
+        if (found)
+            break; 
     }
 
     if (!g_stopRequested) {
