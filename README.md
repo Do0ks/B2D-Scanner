@@ -1,7 +1,7 @@
 # Just a injectable Memory Scanner.
 ![Demo](https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExanRid3dhaGRva2Vya3JkMGNraGxyb296a3dwYmRmODlobGxvcnRvOSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/fRjngW7wuOJPj57x2K/giphy.gif)
 
-Download Injector here: https://github.com/Do0ks/Injector
+Download DLL Injector here: https://github.com/Do0ks/Injector
 
 <b><u>Discription:</u></b>
 
