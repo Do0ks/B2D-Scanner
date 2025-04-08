@@ -19,4 +19,6 @@ This is extreamly helpful and powerful if you know of a solid base address with 
 
 - Combined the above conditions with pointer readability checks to narrow the scan to relevant pointer chains.  
 This should help reduce scan time while only following relevant pointer paths. To further speed up scanning time, if known, adjust the MAX_OFFSET and MAX_SUBOFFSET
+
+- Added dereferencing to base addresses.
 </details>
