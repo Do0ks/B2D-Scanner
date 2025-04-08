@@ -1,12 +1,16 @@
 # Just a injectable Memory Scanner.
 
-![Demo](https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExanRid3dhaGRva2Vya3JkMGNraGxyb296a3dwYmRmODlobGxvcnRvOSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/fRjngW7wuOJPj57x2K/giphy.gif)
+### Updated to be a faster, better, more accurate Memory Scanner.
+![B2D Scanner](https://github.com/user-attachments/assets/2ab4ea75-c867-4749-8393-f6d936a57e46)
 
+Video Demos:
+<Details>
+  
 https://github.com/user-attachments/assets/2686c5c3-cd16-44ba-a60f-648cdb5045c5
 
-Download DLL Injector here: https://github.com/Do0ks/Injector
+</Details>
 
-<b><u>Discription:</u></b>
+<b>Discription:</b>
 
 This is extreamly helpful and powerful if you know of a solid base address with some good pointers, this tool will find the dynamic address along with the missing pointers quicly giving you a solid pointer chain. I made this for the things I couldn't find in UEDumper, but could be applied to other methods.
 
@@ -21,4 +25,7 @@ This is extreamly helpful and powerful if you know of a solid base address with 
 This should help reduce scan time while only following relevant pointer paths. To further speed up scanning time, if known, adjust the MAX_OFFSET and MAX_SUBOFFSET
 
 - Added dereferencing to base addresses.
+
 </details>
+
+Download DLL Injector here: https://github.com/Do0ks/Injector  
