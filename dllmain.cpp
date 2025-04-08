@@ -286,7 +286,7 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
                             newNode.usedOffsets.push_back(diff);
                             foundOffsets = newNode.usedOffsets;
                             found = true;
-                            break; 
+                            break;
                         }
                     }
                     // Enqueue this pointer if it passes checks.
@@ -306,7 +306,7 @@ DWORD WINAPI ScanThreadProc(LPVOID lpParam) {
             }
         }
         if (found)
-            break; 
+            break;
     }
 
     if (!g_stopRequested) {
@@ -520,7 +520,7 @@ DWORD WINAPI GuiThread(LPVOID lpParam) {
 
     g_hWnd = CreateWindowA(
         "PosOffsetsDynamicListScannerCleanFramed",
-        "Base2DynamicScanner",
+        "B2D Scanner",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
