@@ -16,15 +16,13 @@ This is extreamly helpful and powerful if you know of a solid base address with 
 
 <b><u>Updates:</u></b>
 <details>
-  
-- Added functions to extract the most-significant hex digit from an address and only follow pointers of first hex digit that of the base or dynamic address if applicable.
 
-- Addad a check to ensure that only pointers with the same hex digit count as the expected pointer chain (from the base/dynamic addresses) are followed.
+- Added dereferencing to base addresses.
+
+- Added a check to ensure that only pointers with the same hex digit count as the expected pointer chain (from the base/dynamic addresses) are followed.
 
 - Combined the above conditions with pointer readability checks to narrow the scan to relevant pointer chains.  
 This should help reduce scan time while only following relevant pointer paths. To further speed up scanning time, if known, adjust the MAX_OFFSET and MAX_SUBOFFSET
-
-- Added dereferencing to base addresses.
 
 </details>
 
