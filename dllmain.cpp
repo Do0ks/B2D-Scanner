@@ -410,16 +410,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 g_stopRequested = false;
 
                 char bufBase[64], bufDyn[64], bufDepth[16];
-                GetWindowTextA(g_editBase, bufBase, 64);
-                GetWindowTextA(g_editDynamic, bufDyn, 64);
-                GetWindowTextA(g_editMaxDepth, bufDepth, 16);
+                GetWindowTextA(g_editBase, bufBase, sizeof(bufBase));
+                GetWindowTextA(g_editDynamic, bufDyn, sizeof(bufDyn));
+                GetWindowTextA(g_editMaxDepth, bufDepth, sizeof(bufDepth));
 
+                // Convert strings to numbers.
                 DWORD_PTR baseAddr = strtoull(bufBase, NULL, 16);
                 DWORD_PTR dynAddr = strtoull(bufDyn, NULL, 16);
                 int maxDepth = atoi(bufDepth);
                 if (maxDepth < 1)
                     maxDepth = 3;
 
+                char* baseStr = bufBase;
+                if (_strnicmp(baseStr, "0x", 2) == 0)
+                    baseStr += 2;
+
+                if (_strnicmp(baseStr, "7F", 2) == 0) {
+                    DWORD_PTR resolvedAddr = 0;
+                    if (SafeReadPtr(baseAddr, &resolvedAddr)) {
+                        baseAddr = resolvedAddr;
+                    }
+                    else {
+                        AppendConsoleAsync("Failed to resolve base address\r\n");
+                        break; 
+                    }
+                }
+
+                // Process positional offsets.
                 g_positionalOffsets.clear();
                 int count = (int)SendMessageA(g_listOffsets, LB_GETCOUNT, 0, 0);
                 for (int i = 0; i < count; i++) {
