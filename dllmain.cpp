@@ -414,27 +414,100 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 GetWindowTextA(g_editDynamic, bufDyn, sizeof(bufDyn));
                 GetWindowTextA(g_editMaxDepth, bufDepth, sizeof(bufDepth));
 
-                // Convert strings to numbers.
-                DWORD_PTR baseAddr = strtoull(bufBase, NULL, 16);
-                DWORD_PTR dynAddr = strtoull(bufDyn, NULL, 16);
+                // Process Base Address Resolution
+                DWORD_PTR baseAddr = 0;
+                {
+                    std::string baseStr(bufBase);
+                    // Remove possible "0x" prefix.
+                    if (baseStr.compare(0, 2, "0x") == 0 || baseStr.compare(0, 2, "0X") == 0)
+                        baseStr = baseStr.substr(2);
+
+                    if (baseStr.find(".exe+") != std::string::npos) {
+                        // Format: "program-name.exe+offset"
+                        size_t pos = baseStr.find(".exe+");
+                        std::string moduleName = baseStr.substr(0, pos + 4);
+                        std::string offsetStr = baseStr.substr(pos + 5);
+                        HMODULE hModule = GetModuleHandleA(moduleName.c_str());
+                        if (hModule == NULL) {
+                            AppendConsoleAsync("Failed to resolve module handle for base address\r\n");
+                            break;
+                        }
+                        DWORD_PTR offset = strtoull(offsetStr.c_str(), NULL, 16);
+                        DWORD_PTR computedAddr = (DWORD_PTR)hModule + offset;
+                        // Now resolve the address further, like the "7F" addresses:
+                        DWORD_PTR resolvedAddr = 0;
+                        if (SafeReadPtr(computedAddr, &resolvedAddr)) {
+                            baseAddr = resolvedAddr;
+                        }
+                        else {
+                            AppendConsoleAsync("Failed to resolve base address from module+offset\r\n");
+                            break;
+                        }
+                    }
+                    else if (_strnicmp(baseStr.c_str(), "7F", 2) == 0) {
+                        // For addresses starting with "7F", resolve one level of indirection.
+                        baseAddr = strtoull(baseStr.c_str(), NULL, 16);
+                        DWORD_PTR resolvedAddr = 0;
+                        if (SafeReadPtr(baseAddr, &resolvedAddr)) {
+                            baseAddr = resolvedAddr;
+                        }
+                        else {
+                            AppendConsoleAsync("Failed to resolve base address\r\n");
+                            break;
+                        }
+                    }
+                    else {
+                        // Otherwise, assume it's a numeric hexadecimal value.
+                        baseAddr = strtoull(baseStr.c_str(), NULL, 16);
+                    }
+                }
+
+                // Process Dynamic Address Resolution
+                DWORD_PTR dynAddr = 0;
+                {
+                    std::string dynStr(bufDyn);
+                    if (dynStr.compare(0, 2, "0x") == 0 || dynStr.compare(0, 2, "0X") == 0)
+                        dynStr = dynStr.substr(2);
+
+                    if (dynStr.find(".exe+") != std::string::npos) {
+                        size_t pos = dynStr.find(".exe+");
+                        std::string moduleName = dynStr.substr(0, pos + 4);
+                        std::string offsetStr = dynStr.substr(pos + 5);
+                        HMODULE hModule = GetModuleHandleA(moduleName.c_str());
+                        if (hModule == NULL) {
+                            AppendConsoleAsync("Failed to resolve module handle for dynamic address\r\n");
+                            break;
+                        }
+                        DWORD_PTR offset = strtoull(offsetStr.c_str(), NULL, 16);
+                        DWORD_PTR computedAddr = (DWORD_PTR)hModule + offset;
+                        DWORD_PTR resolvedAddr = 0;
+                        if (SafeReadPtr(computedAddr, &resolvedAddr)) {
+                            dynAddr = resolvedAddr;
+                        }
+                        else {
+                            AppendConsoleAsync("Failed to resolve dynamic address from module+offset\r\n");
+                            break;
+                        }
+                    }
+                    else if (_strnicmp(dynStr.c_str(), "7F", 2) == 0) {
+                        dynAddr = strtoull(dynStr.c_str(), NULL, 16);
+                        DWORD_PTR resolvedAddr = 0;
+                        if (SafeReadPtr(dynAddr, &resolvedAddr)) {
+                            dynAddr = resolvedAddr;
+                        }
+                        else {
+                            AppendConsoleAsync("Failed to resolve dynamic address\r\n");
+                            break;
+                        }
+                    }
+                    else {
+                        dynAddr = strtoull(dynStr.c_str(), NULL, 16);
+                    }
+                }
+
                 int maxDepth = atoi(bufDepth);
                 if (maxDepth < 1)
                     maxDepth = 3;
-
-                char* baseStr = bufBase;
-                if (_strnicmp(baseStr, "0x", 2) == 0)
-                    baseStr += 2;
-
-                if (_strnicmp(baseStr, "7F", 2) == 0) {
-                    DWORD_PTR resolvedAddr = 0;
-                    if (SafeReadPtr(baseAddr, &resolvedAddr)) {
-                        baseAddr = resolvedAddr;
-                    }
-                    else {
-                        AppendConsoleAsync("Failed to resolve base address\r\n");
-                        break; 
-                    }
-                }
 
                 // Process positional offsets.
                 g_positionalOffsets.clear();
