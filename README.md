@@ -10,6 +10,9 @@ https://github.com/user-attachments/assets/2686c5c3-cd16-44ba-a60f-648cdb5045c5
 
 </Details>
 
+ &bull; 
+ <a href="https://discord.gg/7nGkqwdJhn">Discord</a>
+
 <b>Discription:</b>
 
 This is extreamly helpful and powerful if you know of a solid base address with some good pointers, this tool will find the dynamic address along with the missing pointers quicly giving you a solid pointer chain. I made this for the things I couldn't find in UEDumper, but could be applied to other methods.
