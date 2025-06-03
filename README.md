@@ -11,7 +11,8 @@ https://github.com/user-attachments/assets/2686c5c3-cd16-44ba-a60f-648cdb5045c5
 </Details>
 
  &bull; 
- <a href="https://discord.gg/7nGkqwdJhn">Discord</a>
+ <a href="https://discord.gg/7nGkqwdJhn">Discord</a>  
+- Looking for a new memory editor? - https://github.com/Do0ks/MemRE
 
 <b>Discription:</b>
 
