@@ -1,6 +1,6 @@
 # Just a injectable Memory Scanner.
+### Note - I have build this scanner into MemRE, which has more support and functionality: https://github.com/Do0ks/MemRE
 
-### Updated to be a faster, better, more accurate Memory Scanner.
 ![B2D Scanner](https://github.com/user-attachments/assets/2ab4ea75-c867-4749-8393-f6d936a57e46)
 
 Video Demos:
@@ -12,10 +12,8 @@ https://github.com/user-attachments/assets/2686c5c3-cd16-44ba-a60f-648cdb5045c5
 
  &bull; 
  <a href="https://discord.gg/7nGkqwdJhn">Discord</a>  
-- Looking for a new memory editor? - https://github.com/Do0ks/MemRE
 
-<b>Discription:</b>
-
+<b>Discription:</b>  
 This is extreamly helpful and powerful if you know of a solid base address with some good pointers, this tool will find the dynamic address along with the missing pointers quicly giving you a solid pointer chain. I made this for the things I couldn't find in UEDumper, but could be applied to other methods.
 
 <b><u>Updates:</u></b>
